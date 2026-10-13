@@ -43,37 +43,61 @@ export default function MyFamilyScreen({
       setLoading(true);
       let familyData = null;
 
-      // 1. Check local storage for previously pinned family ID
-      const localFamId = await AsyncStorage.getItem('my_family_id');
-
-      // 2. Check user object for linked family ID
-      const userFamId = user?.familyId?._id || user?.familyId || user?.family;
-      const targetFamId = userFamId || localFamId;
-
-      if (targetFamId && typeof targetFamId === 'string') {
-        try {
-          const res = await familyApi.getById(targetFamId);
-          familyData = res?.data?.data || res?.data || res;
-        } catch (e) {
-          console.warn('Could not load family by targetFamId:', e.message);
+      // 1. First priority: call dedicated backend endpoint /families/my-family
+      try {
+        const res = await familyApi.getMyFamily();
+        if (res?.success && (res?.data?._id || res?.data?.data?._id)) {
+          familyData = res.data.data || res.data;
+        } else if (res?._id) {
+          familyData = res;
         }
+      } catch (e) {
+        console.warn('getMyFamily endpoint failed:', e?.message || e);
       }
 
-      // 3. If not fetched yet, call dedicated backend endpoint /families/my-family
+      // 2. Second priority: check local storage or user object for pinned family ID
       if (!familyData || !familyData._id) {
-        try {
-          const res = await familyApi.getMyFamily();
-          familyData = res?.data?.data || res?.data || res;
-        } catch (e) {
-          console.warn('getMyFamily endpoint failed:', e.message);
+        const localFamId = await AsyncStorage.getItem('my_family_id');
+        const userFamId = user?.familyId?._id ? String(user.familyId._id) : (user?.familyId ? String(user.familyId) : null);
+        const targetFamId = localFamId || userFamId;
+
+        if (targetFamId) {
+          try {
+            const res = await familyApi.getById(targetFamId);
+            familyData = res?.data?.data || res?.data || res;
+          } catch (e) {
+            console.warn('Could not load family by targetFamId:', e.message);
+          }
         }
       }
 
-      // 4. If still not found and user has a mobile number, search by mobile
-      if ((!familyData || !familyData._id) && user?.mobileNumber) {
+      // 3. Third priority: search by user's mobile number or email
+      if ((!familyData || !familyData._id) && (user?.mobileNumber || user?.email)) {
         try {
           const vId = currentVillage?._id || '6acb0d5c63ce8027eecd8487';
-          const res = await familyApi.getAll({ villageId: vId, search: user.mobileNumber, limit: 1 });
+          // Check members first
+          const query = user?.mobileNumber || user?.email;
+          const mRes = await memberApi.getAll({ search: query, limit: 1 });
+          const mList = Array.isArray(mRes?.data) ? mRes.data : (Array.isArray(mRes) ? mRes : []);
+          if (mList.length > 0 && mList[0].familyId) {
+            const fId = mList[0].familyId?._id || mList[0].familyId;
+            const res = await familyApi.getById(fId);
+            familyData = res?.data?.data || res?.data || res;
+          } else {
+            // Check families directly
+            const res = await familyApi.getAll({ villageId: vId, search: query, limit: 1 });
+            const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+            if (list.length > 0) {
+              familyData = list[0];
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 4. Fourth priority: if user is admin/super_admin with no family linked, load default family (House #172)
+      if ((!familyData || !familyData._id) && (user?.role === 'super_admin' || user?.role === 'village_admin')) {
+        try {
+          const res = await familyApi.getAll({ houseNumber: 172, limit: 1 });
           const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
           if (list.length > 0) {
             familyData = list[0];
@@ -121,12 +145,38 @@ export default function MyFamilyScreen({
     try {
       setSearching(true);
       const vId = currentVillage?._id || '6acb0d5c63ce8027eecd8487';
+      const term = searchQuery.trim();
+
+      // 1. Search families
       const res = await familyApi.getAll({
         villageId: vId,
-        search: searchQuery.trim(),
-        limit: 10
+        search: term,
+        limit: 15
       });
-      const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+      let data = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+
+      // 2. Also search members by name to find their families
+      if (data.length < 5) {
+        try {
+          const mRes = await memberApi.getAll({ search: term, limit: 10 });
+          const mList = Array.isArray(mRes?.data) ? mRes.data : (Array.isArray(mRes) ? mRes : []);
+          const existingFamIds = new Set(data.map(f => String(f._id)));
+          for (const m of mList) {
+            const fId = m.familyId?._id || m.familyId;
+            if (fId && !existingFamIds.has(String(fId))) {
+              existingFamIds.add(String(fId));
+              try {
+                const fRes = await familyApi.getById(fId);
+                const fam = fRes?.data?.data || fRes?.data || fRes;
+                if (fam?._id) {
+                  data.push(fam);
+                }
+              } catch (_) {}
+            }
+          }
+        } catch (_) {}
+      }
+
       setSearchResults(data);
     } catch (err) {
       Alert.alert('ભૂલ', 'કુટુંબ શોધવામાં ભૂલ આવી: ' + (err.message || 'Error'));
@@ -202,12 +252,25 @@ export default function MyFamilyScreen({
   };
 
   // Safe field extractions
-  const headGu = family?.headMemberId?.fullName?.gu || family?.headNameGujarati || family?.headMemberId?.fullName?.en || 'વડીલનું નામ દર્શાવેલ નથી';
-  const headEn = family?.headMemberId?.fullName?.en || family?.headNameEnglish || '';
+  const headFromMembers = members.find(m => m.isHead || m.relationWithHead?.gu === 'પોતે' || m.isFamilyHead || String(m._id) === String(family?.headMemberId?._id || family?.headMemberId));
+  const headGu = family?.headMemberId?.fullName?.gu || headFromMembers?.fullName?.gu || family?.headNameGujarati || family?.headMemberId?.fullName?.en || headFromMembers?.fullName?.en || 'વડીલનું નામ દર્શાવેલ નથી';
+  const headEn = family?.headMemberId?.fullName?.en || headFromMembers?.fullName?.en || family?.headNameEnglish || '';
   const atakName = family?.atak?.gu || family?.atak?.en || (typeof family?.atak === 'string' ? family?.atak : 'અટક');
   const kuldeviName = family?.kuldevi?.gu || family?.kuldevi?.en || (typeof family?.kuldevi === 'string' ? family?.kuldevi : '');
   const addr = family?.address?.streetAddress || family?.address?.currentCity?.gu || (typeof family?.address === 'string' ? family?.address : '');
-  const phone = family?.headMemberId?.mobileNumber || family?.primaryMobile || '';
+  const phone = family?.headMemberId?.mobileNumber || headFromMembers?.mobileNumber || family?.primaryMobile || '';
+
+  // --------------------------------------------------------------------------
+  // RENDER: Loading State
+  // --------------------------------------------------------------------------
+  if (loading && !family) {
+    return (
+      <View style={styles.centerLoadingContainer}>
+        <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+        <Text style={styles.loadingText}>તમારા કુટુંબની માહિતી લોડ થઈ રહી છે...</Text>
+      </View>
+    );
+  }
 
   // --------------------------------------------------------------------------
   // RENDER: Empty / Search Link State
@@ -535,6 +598,18 @@ const styles = StyleSheet.create({
   listPadding: {
     paddingHorizontal: 12,
     paddingBottom: 24
+  },
+  centerLoadingContainer: {
+    flex: 1,
+    backgroundColor: colors.bgBase,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600'
   },
   centerContainer: {
     flex: 1,
