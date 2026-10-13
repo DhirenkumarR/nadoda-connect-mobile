@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+export { apiClient };
 
 export const authApi = {
   login: (mobileNumber, password) =>

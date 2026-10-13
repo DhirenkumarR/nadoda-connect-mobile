@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Platform,
   StatusBar
