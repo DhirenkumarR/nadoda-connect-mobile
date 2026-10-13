@@ -162,7 +162,7 @@ function MainApp() {
           />
         )}
 
-        {activeTab === 'myFamily' && (
+        {(activeTab === 'my-family' || activeTab === 'myFamily') && (
           <MyFamilyScreen
             onOpenMemberDetail={handleOpenMemberDetail}
             onOpenAddMember={handleOpenAddMember}

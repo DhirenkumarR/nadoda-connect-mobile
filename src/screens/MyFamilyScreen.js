@@ -24,7 +24,7 @@ export default function MyFamilyScreen({
   onOpenEditFamily
 }) {
   const { user, currentVillage } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [family, setFamily] = useState(null);
   const [members, setMembers] = useState([]);

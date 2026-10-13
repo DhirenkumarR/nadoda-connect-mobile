@@ -58,7 +58,7 @@ export const familyApi = {
 
   getById: (id) => apiClient.get(`/families/${id}`),
 
-  getMyFamily: () => apiClient.get('/families/my-family'),
+  getMyFamily: () => apiClient.get('/families/my-family', {}, { forceRefresh: true }),
 
   create: (payload) => apiClient.post('/families', payload),
 
