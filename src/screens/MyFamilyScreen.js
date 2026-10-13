@@ -52,63 +52,34 @@ export default function MyFamilyScreen({
           familyData = res;
         }
       } catch (e) {
-        console.warn('getMyFamily endpoint failed:', e?.message || e);
+        // No family linked to account
       }
 
-      // 2. Second priority: check local storage or user object for pinned family ID
+      // 2. Second priority: check if user object directly has a linked family ID
       if (!familyData || !familyData._id) {
-        const localFamId = await AsyncStorage.getItem('my_family_id');
         const userFamId = user?.familyId?._id ? String(user.familyId._id) : (user?.familyId ? String(user.familyId) : null);
-        const targetFamId = localFamId || userFamId;
-
-        if (targetFamId) {
+        if (userFamId) {
           try {
-            const res = await familyApi.getById(targetFamId);
+            const res = await familyApi.getById(userFamId);
             familyData = res?.data?.data || res?.data || res;
-          } catch (e) {
-            console.warn('Could not load family by targetFamId:', e.message);
-          }
+          } catch (e) {}
         }
       }
 
-      // 3. Third priority: search by user's mobile number or email
-      if ((!familyData || !familyData._id) && (user?.mobileNumber || user?.email)) {
-        try {
-          const vId = currentVillage?._id || '6acb0d5c63ce8027eecd8487';
-          // Check members first
-          const query = user?.mobileNumber || user?.email;
-          const mRes = await memberApi.getAll({ search: query, limit: 1 });
-          const mList = Array.isArray(mRes?.data) ? mRes.data : (Array.isArray(mRes) ? mRes : []);
-          if (mList.length > 0 && mList[0].familyId) {
-            const fId = mList[0].familyId?._id || mList[0].familyId;
-            const res = await familyApi.getById(fId);
+      // 3. Third priority: check manually pinned family ID from AsyncStorage (if user previously selected their family)
+      if (!familyData || !familyData._id) {
+        const localFamId = await AsyncStorage.getItem('my_family_id');
+        if (localFamId) {
+          try {
+            const res = await familyApi.getById(localFamId);
             familyData = res?.data?.data || res?.data || res;
-          } else {
-            // Check families directly
-            const res = await familyApi.getAll({ villageId: vId, search: query, limit: 1 });
-            const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
-            if (list.length > 0) {
-              familyData = list[0];
-            }
-          }
-        } catch (e) {}
+          } catch (e) {}
+        }
       }
 
-      // 4. Fourth priority: if user is admin/super_admin with no family linked, load default family (House #172)
-      if ((!familyData || !familyData._id) && (user?.role === 'super_admin' || user?.role === 'village_admin')) {
-        try {
-          const res = await familyApi.getAll({ houseNumber: 172, limit: 1 });
-          const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
-          if (list.length > 0) {
-            familyData = list[0];
-          }
-        } catch (e) {}
-      }
-
-      // 5. Populate family and members
+      // 4. Populate family and members if found
       if (familyData && familyData._id) {
         setFamily(familyData);
-        await AsyncStorage.setItem('my_family_id', familyData._id);
 
         if (Array.isArray(familyData.members) && familyData.members.length > 0) {
           sortAndSetMembers(familyData.members);
@@ -123,6 +94,8 @@ export default function MyFamilyScreen({
       }
     } catch (err) {
       console.warn('Error loading my family:', err.message);
+      setFamily(null);
+      setMembers([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -273,15 +246,20 @@ export default function MyFamilyScreen({
   }
 
   // --------------------------------------------------------------------------
-  // RENDER: Empty / Search Link State
+  // RENDER: Empty / No Family Connected State
   // --------------------------------------------------------------------------
   if (!family && !loading) {
     return (
       <View style={styles.centerContainer}>
-        <FontAwesome5 name="home" size={44} color={colors.amberPrimary} style={{ marginBottom: 12 }} />
-        <Text style={styles.notFoundTitle}>મારું કુટુંબ પસંદ કરો</Text>
+        <View style={styles.emptyIconCircle}>
+          <FontAwesome5 name="home" size={32} color={colors.amberPrimary} />
+        </View>
+        <Text style={styles.notFoundTitle}>કોઈ કુટુંબ જોડાયેલ નથી</Text>
+        <Text style={styles.notFoundEnglishTitle}>No Family Connected</Text>
         <Text style={styles.notFoundSub}>
-          તમારો મોબાઈલ નંબર, ઘર નંબર અથવા વડીલનું નામ શોધીને તમારા કુટુંબની વિગતો જુઓ અને લિંક કરો.
+          {user?.role === 'super_admin' || user?.role === 'village_admin'
+            ? 'તમારા એડમિન એકાઉન્ટ સાથે કોઈ કુટુંબ જોડાયેલ નથી. તમે "વંશાવળી" અને "એડમિન" ટેબમાંથી સમગ્ર ગામનું સંચાલન કરી શકો છો.'
+            : 'તમારા એકાઉન્ટ સાથે હજુ સુધી કોઈ કુટુંબ ડિરેક્ટરીમાં જોડાયેલ નથી.'}
         </Text>
 
         {/* Search Input Box */}
@@ -618,11 +596,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20
   },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12
+  },
   notFoundTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: colors.textPrimary,
-    marginBottom: 6
+    marginBottom: 4
+  },
+  notFoundEnglishTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.amberPrimary,
+    marginBottom: 8
   },
   notFoundSub: {
     fontSize: 13,
