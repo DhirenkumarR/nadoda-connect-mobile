@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { apiCache } from './cache';
+
 // Production Render backend as default for live mobile testing
 export const DEFAULT_API_URL = 'https://nadoda-connect-backend.onrender.com/api';
 
@@ -11,6 +13,7 @@ class ApiClient {
   async setBaseUrl(url) {
     this.baseUrl = url;
     await AsyncStorage.setItem('custom_api_url', url);
+    await apiCache.clear();
   }
 
   async init() {
@@ -80,28 +83,71 @@ class ApiClient {
     }
   }
 
-  get(endpoint, headers = {}) {
-    return this.request(endpoint, { method: 'GET', headers });
+  async get(endpoint, headers = {}, options = {}) {
+    const { forceRefresh = false, ttlMs } = options;
+
+    // Check cache first if not force refreshed
+    if (!forceRefresh) {
+      const cached = await apiCache.get(endpoint, ttlMs);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const data = await this.request(endpoint, { method: 'GET', headers });
+
+    // Cache successful GET responses
+    if (data && (data.success !== false)) {
+      await apiCache.set(endpoint, data);
+    }
+
+    return data;
   }
 
-  post(endpoint, body = {}, headers = {}) {
-    return this.request(endpoint, {
+  async post(endpoint, body = {}, headers = {}) {
+    const data = await this.request(endpoint, {
       method: 'POST',
       headers,
       body: JSON.stringify(body)
     });
+
+    // Invalidate related caches
+    if (endpoint.includes('/members')) await apiCache.invalidate('/members');
+    if (endpoint.includes('/families')) await apiCache.invalidate('/families');
+    if (endpoint.includes('/villages')) await apiCache.invalidate('/villages');
+    if (endpoint.includes('/auth/users') || endpoint.includes('session')) {
+      await apiCache.invalidate('/auth');
+    }
+
+    return data;
   }
 
-  put(endpoint, body = {}, headers = {}) {
-    return this.request(endpoint, {
+  async put(endpoint, body = {}, headers = {}) {
+    const data = await this.request(endpoint, {
       method: 'PUT',
       headers,
       body: JSON.stringify(body)
     });
+
+    // Invalidate related caches
+    if (endpoint.includes('/members')) await apiCache.invalidate('/members');
+    if (endpoint.includes('/families')) await apiCache.invalidate('/families');
+    if (endpoint.includes('/villages')) await apiCache.invalidate('/villages');
+    if (endpoint.includes('/auth')) await apiCache.invalidate('/auth');
+
+    return data;
   }
 
-  delete(endpoint, headers = {}) {
-    return this.request(endpoint, { method: 'DELETE', headers });
+  async delete(endpoint, headers = {}) {
+    const data = await this.request(endpoint, { method: 'DELETE', headers });
+
+    // Invalidate related caches
+    if (endpoint.includes('/members')) await apiCache.invalidate('/members');
+    if (endpoint.includes('/families')) await apiCache.invalidate('/families');
+    if (endpoint.includes('/villages')) await apiCache.invalidate('/villages');
+    if (endpoint.includes('/auth')) await apiCache.invalidate('/auth');
+
+    return data;
   }
 }
 
