@@ -61,10 +61,12 @@ export default function MyFamilyScreen({
         setFamily(familyData);
         // Load members for this family
         const mRes = await memberApi.getAll({ familyId: familyData._id, limit: 100 });
-        const mems = mRes.data?.data || mRes.data?.members || [];
+        const mems = Array.isArray(mRes?.data) ? mRes.data : (Array.isArray(mRes) ? mRes : []);
         mems.sort((a, b) => {
-          if (a.isHead) return -1;
-          if (b.isHead) return 1;
+          const isHeadA = a.isHead || a.relationWithHead?.gu === 'પોતે' || a.isFamilyHead;
+          const isHeadB = b.isHead || b.relationWithHead?.gu === 'પોતે' || b.isFamilyHead;
+          if (isHeadA) return -1;
+          if (isHeadB) return 1;
           return (b.age || 0) - (a.age || 0);
         });
         setMembers(mems);
@@ -86,9 +88,10 @@ export default function MyFamilyScreen({
   };
 
   const handleDeleteMember = (member) => {
+    const name = member.fullName?.gu || member.fullName?.en || member.fullNameGujarati || 'આ સભ્ય';
     Alert.alert(
       'સભ્ય રદ કરો',
-      `શું તમે ખરેખર ${member.fullNameGujarati || member.fullNameEnglish} ને રદ કરવા માંગો છો?`,
+      `શું તમે ખરેખર ${name} ને રદ કરવા માંગો છો?`,
       [
         { text: 'ના', style: 'cancel' },
         {
@@ -99,7 +102,7 @@ export default function MyFamilyScreen({
               await memberApi.delete(member._id);
               loadMyFamily();
             } catch (err) {
-              Alert.alert('ભૂલ', err.response?.data?.message || 'રદ કરી શકાયું નથી');
+              Alert.alert('ભૂલ', err.response?.message || 'રદ કરી શકાયું નથી');
             }
           }
         }
@@ -123,6 +126,12 @@ export default function MyFamilyScreen({
     );
   }
 
+  const headGu = family?.headMemberId?.fullName?.gu || family?.headNameGujarati || 'N/A';
+  const headEn = family?.headMemberId?.fullName?.en || family?.headNameEnglish;
+  const atakName = family?.atak?.gu || family?.atak || 'અટક';
+  const kuldeviName = family?.kuldevi?.gu || family?.kuldevi;
+  const addr = family?.address?.streetAddress || family?.address?.currentCity?.gu || (typeof family?.address === 'string' ? family?.address : '');
+
   return (
     <View style={styles.container}>
       {loading && (
@@ -140,7 +149,7 @@ export default function MyFamilyScreen({
               <Text style={styles.houseBadgeText}>ઘર નં. {family?.houseNumber || 'N/A'}</Text>
             </View>
             <View style={styles.atakBadge}>
-              <Text style={styles.atakBadgeText}>{family?.atak || 'અટક'}</Text>
+              <Text style={styles.atakBadgeText}>{atakName}</Text>
             </View>
           </View>
 
@@ -154,24 +163,22 @@ export default function MyFamilyScreen({
         </View>
 
         <Text style={styles.headLabel}>મુખ્ય વડીલ:</Text>
-        <Text style={styles.headName}>
-          {family?.headNameGujarati || family?.headNameEnglish || 'N/A'}
-        </Text>
-        {family?.headNameEnglish && family?.headNameGujarati && (
-          <Text style={styles.headNameEnglish}>{family?.headNameEnglish}</Text>
+        <Text style={styles.headName}>{headGu}</Text>
+        {headEn && headGu !== headEn && (
+          <Text style={styles.headNameEnglish}>{headEn}</Text>
         )}
 
-        {family?.address ? (
+        {addr ? (
           <View style={styles.infoRow}>
             <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-            <Text style={styles.infoText}>{family.address}</Text>
+            <Text style={styles.infoText}>{addr}</Text>
           </View>
         ) : null}
 
-        {family?.kuldevi ? (
+        {kuldeviName ? (
           <View style={styles.infoRow}>
             <Ionicons name="flame" size={14} color={colors.amberPrimary} />
-            <Text style={styles.infoText}>કુળદેવી: {family.kuldevi}</Text>
+            <Text style={styles.infoText}>કુળદેવી: {kuldeviName}</Text>
           </View>
         ) : null}
 

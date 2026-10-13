@@ -35,12 +35,12 @@ export default function StatsScreen() {
       setLoading(true);
       // Fetch stats from village stats endpoint
       const res = await villageApi.getStats(currentVillage._id);
-      const data = res.data?.data || res.data || {};
+      const data = (res && res.data) ? res.data : res || {};
       setStats(data);
 
       // Fetch all members for in-depth demographics calculation
       const mRes = await memberApi.getAll({ villageId: currentVillage._id, limit: 2000 });
-      const mems = mRes.data?.data || mRes.data?.members || [];
+      const mems = Array.isArray(mRes?.data) ? mRes.data : (Array.isArray(mRes) ? mRes : []);
       setMembers(mems);
     } catch (err) {
       console.warn('Error loading stats:', err.message);
@@ -58,7 +58,7 @@ export default function StatsScreen() {
       Alert.alert('સફળ', 'આંકડા સફળતાપૂર્વક અપડેટ થયા');
       await loadStats();
     } catch (err) {
-      Alert.alert('ભૂલ', err.response?.data?.message || 'રીકેલ્ક્યુલેટ નિષ્ફળ રહ્યું');
+      Alert.alert('ભૂલ', err.response?.message || 'રીકેલ્ક્યુલેટ નિષ્ફળ રહ્યું');
     } finally {
       setRecalculating(false);
     }
@@ -103,17 +103,20 @@ export default function StatsScreen() {
       else if (a <= 60) age36_60++;
       else age60Plus++;
 
-      if (m.maritalStatus) {
-        maritalCount[m.maritalStatus] = (maritalCount[m.maritalStatus] || 0) + 1;
+      const mMarital = m.maritalStatus?.key || (typeof m.maritalStatus === 'string' ? m.maritalStatus : '');
+      if (mMarital) {
+        maritalCount[mMarital] = (maritalCount[mMarital] || 0) + 1;
       }
 
-      if (m.occupation && m.occupation.trim()) {
-        const occ = m.occupation.trim();
+      const mOcc = m.occupation?.title || (typeof m.occupation === 'string' ? m.occupation : '');
+      if (mOcc && mOcc.trim()) {
+        const occ = mOcc.trim();
         occCount[occ] = (occCount[occ] || 0) + 1;
       }
 
-      if (m.workCity && m.workCity.trim()) {
-        const c = m.workCity.trim();
+      const mCity = m.occupation?.workCity || m.location?.currentCity?.gu || m.address?.currentCity?.gu || (typeof m.workCity === 'string' ? m.workCity : '');
+      if (mCity && mCity.trim()) {
+        const c = mCity.trim();
         cityCount[c] = (cityCount[c] || 0) + 1;
       }
     });

@@ -118,16 +118,16 @@ function MainApp() {
   // 2. Unauthenticated -> Login Screen
   if (!isAuthenticated) {
     return (
-      <SafeAreaView style={styles.safeContainer}>
+      <View style={styles.safeContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bgDark} />
         <LoginScreen />
-      </SafeAreaView>
+      </View>
     );
   }
 
   // 3. Authenticated App
   return (
-    <SafeAreaView style={styles.safeContainer}>
+    <View style={styles.safeContainer}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bgDark} />
 
       {/* Top Header */}
@@ -228,7 +228,7 @@ function MainApp() {
         visible={changePasswordVisible}
         onClose={() => setChangePasswordVisible(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

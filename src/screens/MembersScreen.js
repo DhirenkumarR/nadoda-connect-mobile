@@ -52,7 +52,7 @@ export default function MembersScreen({
         villageId: currentVillage._id,
         limit: 1500
       });
-      const data = res.data?.data || res.data?.members || [];
+      const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
       setAllMembers(data);
     } catch (err) {
       console.warn('Error loading members:', err.message);
@@ -66,8 +66,9 @@ export default function MembersScreen({
     if (!currentVillage?._id) return;
     try {
       const res = await villageApi.getById(currentVillage._id);
-      const vData = res.data?.data || res.data || {};
-      const ataks = (vData.ataks || []).map(a => a.name).filter(Boolean);
+      const vData = (res && res.data) ? res.data : res;
+      const reg = vData?.registeredAtaks || [];
+      const ataks = reg.map(a => a.atak?.gu || a.name || a.atak).filter(Boolean);
       setAtaksList(ataks);
     } catch (err) {
       console.warn('Error loading ataks:', err.message);
@@ -80,9 +81,10 @@ export default function MembersScreen({
   };
 
   const handleDeleteMember = (member) => {
+    const name = member.fullName?.gu || member.fullName?.en || member.fullNameGujarati || 'આ સભ્ય';
     Alert.alert(
       'સભ્ય રદ કરો',
-      `શું તમે ખરેખર ${member.fullNameGujarati || member.fullNameEnglish} ને રદ કરવા માંગો છો?`,
+      `શું તમે ખરેખર ${name} ને રદ કરવા માંગો છો?`,
       [
         { text: 'ના', style: 'cancel' },
         {
@@ -93,7 +95,7 @@ export default function MembersScreen({
               await memberApi.delete(member._id);
               loadMembers();
             } catch (err) {
-              Alert.alert('ભૂલ', err.response?.data?.message || 'રદ કરી શકાયું નથી');
+              Alert.alert('ભૂલ', err.response?.message || 'રદ કરી શકાયું નથી');
             }
           }
         }
@@ -110,37 +112,39 @@ export default function MembersScreen({
         if (vId !== currentVillage._id) return false;
       }
 
+      const mAtak = m.atak?.gu || m.atak?.en || (typeof m.atak === 'string' ? m.atak : '') || m.familyId?.atak?.gu || '';
       // Atak filter
       if (selectedAtak !== 'ALL') {
-        const mAtak = m.familyId?.atak || m.atak;
         if (mAtak !== selectedAtak) return false;
       }
 
       // Gender filter
+      const mGender = m.gender?.key || m.gender;
       if (selectedGender !== 'ALL') {
-        if (m.gender !== selectedGender) return false;
+        if (mGender !== selectedGender) return false;
       }
 
       // Only heads filter
-      if (onlyHeads && !m.isHead) {
+      const isHead = Boolean(m.isHead || m.isFamilyHead || m.relationWithHead?.gu === 'પોતે' || m.relationWithHead?.en === 'Self');
+      if (onlyHeads && !isHead) {
         return false;
       }
 
       // Marital status filter
+      const mMarital = m.maritalStatus?.key || m.maritalStatus;
       if (selectedMaritalStatus !== 'ALL') {
-        if (m.maritalStatus !== selectedMaritalStatus) return false;
+        if (mMarital !== selectedMaritalStatus) return false;
       }
 
       // Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const fullGuj = (m.fullNameGujarati || '').toLowerCase();
-        const fullEng = (m.fullNameEnglish || '').toLowerCase();
-        const phone = (m.mobileNumber || '').toLowerCase();
-        const job = (m.occupation || '').toLowerCase();
-        const city = (m.workCity || '').toLowerCase();
-        const mAtak = (m.familyId?.atak || m.atak || '').toLowerCase();
-        const house = (m.familyId?.houseNumber || '').toLowerCase();
+        const fullGuj = (m.fullName?.gu || m.fullNameGujarati || '').toLowerCase();
+        const fullEng = (m.fullName?.en || m.fullNameEnglish || '').toLowerCase();
+        const phone = (m.mobileNumber || m.contact?.mobileNumber || '').toLowerCase();
+        const job = (m.occupation?.title || m.occupation || '').toLowerCase();
+        const city = (m.occupation?.workCity || m.location?.currentCity?.gu || m.workCity || '').toLowerCase();
+        const house = String(m.houseNumber || m.familyId?.houseNumber || '').toLowerCase();
 
         return (
           fullGuj.includes(q) ||
@@ -148,7 +152,7 @@ export default function MembersScreen({
           phone.includes(q) ||
           job.includes(q) ||
           city.includes(q) ||
-          mAtak.includes(q) ||
+          mAtak.toLowerCase().includes(q) ||
           house.includes(q)
         );
       }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authApi, apiClient } from '../api';
+import { authApi, villageApi, apiClient } from '../api';
 
 const AuthContext = createContext();
 
@@ -9,17 +9,24 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize session from storage
+  // Village state
+  const [villages, setVillages] = useState([]);
+  const [currentVillage, setCurrentVillage] = useState(null);
+
+  // Initialize session & villages from storage / API
   useEffect(() => {
     const initAuth = async () => {
       try {
         await apiClient.init();
         const storedToken = await AsyncStorage.getItem('nadoda_token');
         const storedUser = await AsyncStorage.getItem('nadoda_user');
+        const storedVillageId = await AsyncStorage.getItem('selected_village_id');
 
+        let currentUser = null;
         if (storedToken && storedUser) {
           setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+          currentUser = JSON.parse(storedUser);
+          setUser(currentUser);
 
           // Silently refresh profile in background
           authApi.getMe()
@@ -31,6 +38,22 @@ export const AuthProvider = ({ children }) => {
             })
             .catch(() => {});
         }
+
+        // Fetch villages list
+        try {
+          const vRes = await villageApi.getAll();
+          const vList = Array.isArray(vRes?.data) ? vRes.data : (Array.isArray(vRes) ? vRes : []);
+          setVillages(vList);
+
+          if (vList.length > 0) {
+            // Priority: stored village > user's assigned village > first village (Baspa)
+            const targetId = storedVillageId || currentUser?.assignedVillageId?._id || currentUser?.assignedVillageId || currentUser?.villageId?._id || currentUser?.villageId;
+            const matched = vList.find(v => String(v._id) === String(targetId)) || vList[0];
+            setCurrentVillage(matched);
+          }
+        } catch (vErr) {
+          console.warn('Failed to fetch villages in AuthContext:', vErr.message);
+        }
       } catch (err) {
         console.warn('Auth init failed:', err.message);
       } finally {
@@ -41,6 +64,13 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
+  const selectVillage = (v) => {
+    setCurrentVillage(v);
+    if (v?._id) {
+      AsyncStorage.setItem('selected_village_id', v._id);
+    }
+  };
+
   const login = async (mobileNumber, password) => {
     const res = await authApi.login(mobileNumber, password);
     if (res.success && res.token && res.data) {
@@ -48,6 +78,14 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem('nadoda_user', JSON.stringify(res.data));
       setToken(res.token);
       setUser(res.data);
+
+      // Match village if not selected
+      if (villages.length > 0 && !currentVillage) {
+        const targetId = res.data?.assignedVillageId?._id || res.data?.assignedVillageId || res.data?.villageId;
+        const matched = villages.find(v => String(v._id) === String(targetId)) || villages[0];
+        selectVillage(matched);
+      }
+
       return res.data;
     }
     throw new Error(res.message || 'Login failed');
@@ -105,6 +143,9 @@ export const AuthProvider = ({ children }) => {
         token,
         isAuthenticated: Boolean(user && token),
         loading,
+        villages,
+        currentVillage,
+        selectVillage,
         login,
         logout,
         refreshUser,
@@ -121,3 +162,5 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+
+export default AuthContext;

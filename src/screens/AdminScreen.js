@@ -64,7 +64,7 @@ export default function AdminScreen() {
         params.villageId = currentVillage._id;
       }
       const res = await authApi.getUsers(params);
-      const data = res.data?.data || res.data?.users || [];
+      const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.users) ? res.users : (Array.isArray(res) ? res : []));
       setUsersList(data);
     } catch (err) {
       console.warn('Error loading users:', err.message);
@@ -74,7 +74,7 @@ export default function AdminScreen() {
   const loadSessions = async () => {
     try {
       const res = await authApi.getActiveSessions();
-      const data = res.data?.data || res.data?.sessions || [];
+      const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.sessions) ? res.sessions : (Array.isArray(res) ? res : []));
       setSessionsList(data);
     } catch (err) {
       console.warn('Error loading active sessions:', err.message);
@@ -102,7 +102,7 @@ export default function AdminScreen() {
               Alert.alert('સફળ', 'સત્ર સફળતાપૂર્વક સમાપ્ત કરવામાં આવ્યું');
               loadSessions();
             } catch (err) {
-              Alert.alert('ભૂલ', err.response?.data?.message || 'નિષ્ફળ રહ્યું');
+              Alert.alert('ભૂલ', err.response?.message || 'નિષ્ફળ રહ્યું');
             }
           }
         }
@@ -116,7 +116,7 @@ export default function AdminScreen() {
     if (!currentVillage?._id) return;
     try {
       const res = await authApi.getEligibleMembers(currentVillage._id, text);
-      const data = res.data?.data || res.data?.members || [];
+      const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.members) ? res.members : (Array.isArray(res) ? res : []));
       setEligibleMembers(data);
     } catch (err) {
       console.warn('Error searching eligible members:', err.message);

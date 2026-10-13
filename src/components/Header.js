@@ -32,7 +32,7 @@ export const Header = ({
     : '👤 Member';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <View style={styles.header}>
         {/* Left: Brand Identity */}
         <View style={styles.brandContainer}>
@@ -192,7 +192,7 @@ export const Header = ({
           </View>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 

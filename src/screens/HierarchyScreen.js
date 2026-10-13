@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -61,34 +61,61 @@ export default function HierarchyScreen({
     if (!currentVillage?._id) return;
     try {
       setLoading(true);
-      // Fetch full village details to get ataks array and counts
+      // 1. Fetch full village details
       const res = await villageApi.getById(currentVillage._id);
-      const vData = res.data?.data || res.data || {};
-      
-      // Also get families to count per atak if not present
-      const famRes = await familyApi.getAll({ villageId: currentVillage._id, limit: 1000 });
-      const allFamilies = famRes.data?.data || famRes.data?.families || [];
+      const vData = (res && res.data) ? res.data : res;
 
-      const atakCounts = {};
-      allFamilies.forEach(f => {
-        const aName = f.atak;
-        if (aName) {
-          atakCounts[aName] = (atakCounts[aName] || 0) + 1;
+      let rawAtaks = vData?.registeredAtaks || [];
+
+      // 2. Also try getStats to ensure accurate counts if available
+      try {
+        const statsRes = await villageApi.getStats(currentVillage._id);
+        const statsData = statsRes?.data || statsRes;
+        if (statsData?.ataks && statsData.ataks.length > 0) {
+          rawAtaks = statsData.ataks;
         }
+      } catch {}
+
+      // 3. Fallback: fetch families to count if registeredAtaks is empty
+      const atakCounts = {};
+      if (rawAtaks.length === 0) {
+        try {
+          const famRes = await familyApi.getAll({ villageId: currentVillage._id, limit: 1000 });
+          const allFamilies = Array.isArray(famRes?.data) ? famRes.data : (Array.isArray(famRes) ? famRes : []);
+          allFamilies.forEach(f => {
+            const aName = f.atak?.gu || f.atak?.en || (typeof f.atak === 'string' ? f.atak : '');
+            if (aName) {
+              atakCounts[aName] = (atakCounts[aName] || 0) + 1;
+            }
+          });
+        } catch {}
+      }
+
+      // Map to standard UI objects
+      const ataks = rawAtaks.map((a, idx) => {
+        const guName = a.atak?.gu || a.name || a.atak || '';
+        const enName = a.atak?.en || a.nameEn || '';
+        const kuldeviGu = a.kuldevi?.gu || a.kuldevi || '';
+        return {
+          _id: a._id || guName || String(idx),
+          name: guName,
+          nameEn: enName,
+          kuldevi: kuldeviGu,
+          familyCount: a.totalHouses || atakCounts[guName] || 0,
+          memberCount: a.totalMembers || 0
+        };
       });
 
-      const ataks = (vData.ataks || []).map(a => ({
-        ...a,
-        familyCount: atakCounts[a.name] || 0
-      }));
-
-      // If village has no ataks configured yet, synthesize from families
-      if (ataks.length === 0 && allFamilies.length > 0) {
-        const uniqueAtaks = [...new Set(allFamilies.map(f => f.atak).filter(Boolean))];
-        uniqueAtaks.forEach(aName => {
+      // Synthesize if empty
+      if (ataks.length === 0 && Object.keys(atakCounts).length > 0) {
+        Object.entries(atakCounts).forEach(([aName, count]) => {
           ataks.push({
+            _id: aName,
             name: aName,
-            familyCount: atakCounts[aName] || 0
+            nameEn: aName,
+            kuldevi: '',
+            familyCount: count,
+            memberCount: 0
           });
         });
       }
@@ -106,15 +133,17 @@ export default function HierarchyScreen({
     try {
       setLoading(true);
       const res = await familyApi.getById(famId);
-      const fam = res.data?.data || res.data;
+      const fam = res?.data || res;
       if (fam) {
-        setSelectedAtak({ name: fam.atak, kuldevi: fam.kuldevi });
+        const aName = fam.atak?.gu || fam.atak?.en || fam.atak || '';
+        const kName = fam.kuldevi?.gu || fam.kuldevi?.en || fam.kuldevi || '';
+        setSelectedAtak({ name: aName, kuldevi: kName });
         setSelectedFamily(fam);
         setLevel(3);
         await loadFamilyRoster(fam._id);
       }
     } catch (err) {
-      Alert.alert('ભૂલ', 'કુટુંબ શોધવામાં અસમર્થ: ' + (err.response?.data?.message || err.message));
+      Alert.alert('ભૂલ', 'કુટુંબ શોધવામાં અસમર્થ: ' + (err.response?.message || err.message));
     } finally {
       setLoading(false);
       if (clearTargetFamily) clearTargetFamily();
@@ -130,7 +159,7 @@ export default function HierarchyScreen({
         atak: atakName,
         limit: 500
       });
-      const data = res.data?.data || res.data?.families || [];
+      const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
       setFamiliesList(data);
     } catch (err) {
       console.warn('Error loading families for atak:', err.message);
@@ -146,16 +175,18 @@ export default function HierarchyScreen({
       setLoading(true);
       // Fetch fresh family detail
       const fRes = await familyApi.getById(famId);
-      const fam = fRes.data?.data || fRes.data;
+      const fam = fRes?.data || fRes;
       setSelectedFamily(fam);
 
       // Fetch all members belonging to this family
       const mRes = await memberApi.getAll({ familyId: famId, limit: 100 });
-      const mems = mRes.data?.data || mRes.data?.members || [];
-      // Sort: Head first, then by age/relation
+      const mems = Array.isArray(mRes?.data) ? mRes.data : (Array.isArray(mRes) ? mRes : []);
+      // Sort: Head first, then by age
       mems.sort((a, b) => {
-        if (a.isHead) return -1;
-        if (b.isHead) return 1;
+        const isHeadA = a.isHead || a.relationWithHead?.gu === 'પોતે' || a.isFamilyHead;
+        const isHeadB = b.isHead || b.relationWithHead?.gu === 'પોતે' || b.isFamilyHead;
+        if (isHeadA) return -1;
+        if (isHeadB) return 1;
         return (b.age || 0) - (a.age || 0);
       });
       setMembersList(mems);
@@ -209,9 +240,10 @@ export default function HierarchyScreen({
   };
 
   const handleDeleteMember = (member) => {
+    const name = member.fullName?.gu || member.fullName?.en || member.fullNameGujarati || 'આ સભ્ય';
     Alert.alert(
       'સભ્ય રદ કરો',
-      `શું તમે ખરેખર ${member.fullNameGujarati || member.fullNameEnglish} ને રદ કરવા માંગો છો?`,
+      `શું તમે ખરેખર ${name} ને રદ કરવા માંગો છો?`,
       [
         { text: 'ના', style: 'cancel' },
         {
@@ -222,7 +254,7 @@ export default function HierarchyScreen({
               await memberApi.delete(member._id);
               if (selectedFamily) loadFamilyRoster(selectedFamily._id);
             } catch (err) {
-              Alert.alert('ભૂલ', err.response?.data?.message || 'રદ કરી શકાયું નથી');
+              Alert.alert('ભૂલ', err.response?.message || 'રદ કરી શકાયું નથી');
             }
           }
         }
@@ -236,6 +268,7 @@ export default function HierarchyScreen({
     const q = atakSearch.toLowerCase().trim();
     return ataksList.filter(a =>
       (a.name && a.name.toLowerCase().includes(q)) ||
+      (a.nameEn && a.nameEn.toLowerCase().includes(q)) ||
       (a.kuldevi && a.kuldevi.toLowerCase().includes(q))
     );
   }, [ataksList, atakSearch]);
@@ -244,12 +277,19 @@ export default function HierarchyScreen({
   const filteredFamilies = useMemo(() => {
     if (!familySearch.trim()) return familiesList;
     const q = familySearch.toLowerCase().trim();
-    return familiesList.filter(f =>
-      (f.houseNumber && f.houseNumber.toLowerCase().includes(q)) ||
-      (f.headNameGujarati && f.headNameGujarati.toLowerCase().includes(q)) ||
-      (f.headNameEnglish && f.headNameEnglish.toLowerCase().includes(q)) ||
-      (f.address && f.address.toLowerCase().includes(q))
-    );
+    return familiesList.filter(f => {
+      const houseStr = String(f.houseNumber || '');
+      const headGu = f.headMemberId?.fullName?.gu || f.headNameGujarati || '';
+      const headEn = f.headMemberId?.fullName?.en || f.headNameEnglish || '';
+      const addr = f.address?.streetAddress || f.address?.currentCity?.gu || (typeof f.address === 'string' ? f.address : '');
+
+      return (
+        houseStr.includes(q) ||
+        headGu.toLowerCase().includes(q) ||
+        headEn.toLowerCase().includes(q) ||
+        addr.toLowerCase().includes(q)
+      );
+    });
   }, [familiesList, familySearch]);
 
   const canManage = isSuperAdmin || canManageVillage(currentVillage?._id);
@@ -278,7 +318,7 @@ export default function HierarchyScreen({
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>
-          {currentVillage?.nameGujarati || currentVillage?.name || 'ગામ'} ની તમામ અટક ({filteredAtaks.length})
+          {currentVillage?.name?.gu || currentVillage?.nameGujarati || 'ગામ'} ની તમામ અટક ({filteredAtaks.length})
         </Text>
         <Text style={styles.sectionSubtitle}>અટક પર ક્લિક કરીને કુટુંબો જુઓ</Text>
       </View>
@@ -309,7 +349,12 @@ export default function HierarchyScreen({
                 </Text>
               </View>
               <View style={styles.atakInfo}>
-                <Text style={styles.atakName}>{item.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.atakName}>{item.name}</Text>
+                  {item.nameEn ? (
+                    <Text style={styles.atakNameEn}>({item.nameEn})</Text>
+                  ) : null}
+                </View>
                 {item.kuldevi ? (
                   <View style={styles.kuldeviRow}>
                     <Ionicons name="flame" size={12} color={colors.amberPrimary} />
@@ -344,7 +389,7 @@ export default function HierarchyScreen({
         </TouchableOpacity>
         <Text style={styles.breadcrumbDivider}>/</Text>
         <Text style={styles.breadcrumbCurrent} numberOfLines={1}>
-          અટક: {selectedAtak?.name}
+          અટક: {selectedAtak?.name} {selectedAtak?.nameEn ? `(${selectedAtak.nameEn})` : ''}
         </Text>
       </View>
 
@@ -409,54 +454,59 @@ export default function HierarchyScreen({
             </View>
           )
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.familyCard}
-            activeOpacity={0.7}
-            onPress={() => handleSelectFamily(item)}
-          >
-            <View style={styles.familyCardHeader}>
-              <View style={styles.familyHouseBadge}>
-                <Ionicons name="home-outline" size={13} color={colors.amberPrimary} />
-                <Text style={styles.familyHouseText}>ઘર નં. {item.houseNumber || 'N/A'}</Text>
-              </View>
-              <View style={styles.familyMemberCountBadge}>
-                <Ionicons name="people-outline" size={12} color={colors.emerald} />
-                <Text style={styles.familyMemberCountText}>
-                  {item.membersCount || (item.members && item.members.length) || 0} સભ્યો
-                </Text>
-              </View>
-            </View>
+        renderItem={({ item }) => {
+          const headGu = item.headMemberId?.fullName?.gu || item.headNameGujarati || 'વડીલનું નામ દર્શાવેલ નથી';
+          const headEn = item.headMemberId?.fullName?.en || item.headNameEnglish;
+          const phone = item.headMemberId?.mobileNumber || item.primaryMobile || item.mobileNumber;
+          const addr = item.address?.streetAddress || item.address?.currentCity?.gu || (typeof item.address === 'string' ? item.address : '');
 
-            <View style={styles.familyCardBody}>
-              <Text style={styles.familyHeadName}>
-                {item.headNameGujarati || item.headNameEnglish || 'વડીલનું નામ દર્શાવેલ નથી'}
-              </Text>
-              {item.headNameEnglish && item.headNameGujarati && (
-                <Text style={styles.familyHeadSub}>{item.headNameEnglish}</Text>
-              )}
-
-              {item.address ? (
-                <View style={styles.familyInfoRow}>
-                  <Ionicons name="location-outline" size={13} color={colors.textMuted} />
-                  <Text style={styles.familyInfoText} numberOfLines={1}>{item.address}</Text>
+          return (
+            <TouchableOpacity
+              style={styles.familyCard}
+              activeOpacity={0.7}
+              onPress={() => handleSelectFamily(item)}
+            >
+              <View style={styles.familyCardHeader}>
+                <View style={styles.familyHouseBadge}>
+                  <Ionicons name="home-outline" size={13} color={colors.amberPrimary} />
+                  <Text style={styles.familyHouseText}>ઘર નં. {item.houseNumber || 'N/A'}</Text>
                 </View>
-              ) : null}
-
-              {item.mobileNumber ? (
-                <View style={styles.familyInfoRow}>
-                  <Ionicons name="call-outline" size={13} color={colors.textMuted} />
-                  <Text style={styles.familyInfoText}>{item.mobileNumber}</Text>
+                <View style={styles.familyMemberCountBadge}>
+                  <Ionicons name="people-outline" size={12} color={colors.emerald} />
+                  <Text style={styles.familyMemberCountText}>
+                    {item.totalMembersCount || (item.members && item.members.length) || 0} સભ્યો
+                  </Text>
                 </View>
-              ) : null}
-            </View>
+              </View>
 
-            <View style={styles.familyCardFooter}>
-              <Text style={styles.viewRosterPrompt}>સભ્યોની યાદી જુઓ</Text>
-              <Ionicons name="arrow-forward-circle" size={18} color={colors.amberPrimary} />
-            </View>
-          </TouchableOpacity>
-        )}
+              <View style={styles.familyCardBody}>
+                <Text style={styles.familyHeadName}>{headGu}</Text>
+                {headEn && headGu !== headEn && (
+                  <Text style={styles.familyHeadSub}>{headEn}</Text>
+                )}
+
+                {addr ? (
+                  <View style={styles.familyInfoRow}>
+                    <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+                    <Text style={styles.familyInfoText} numberOfLines={1}>{addr}</Text>
+                  </View>
+                ) : null}
+
+                {phone ? (
+                  <View style={styles.familyInfoRow}>
+                    <Ionicons name="call-outline" size={13} color={colors.textMuted} />
+                    <Text style={styles.familyInfoText}>{phone}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={styles.familyCardFooter}>
+                <Text style={styles.viewRosterPrompt}>સભ્યોની યાદી જુઓ</Text>
+                <Ionicons name="arrow-forward-circle" size={18} color={colors.amberPrimary} />
+              </View>
+            </TouchableOpacity>
+          );
+        }}
       />
     </View>
   );
@@ -464,113 +514,118 @@ export default function HierarchyScreen({
   // --------------------------------------------------------------------------
   // RENDER LEVEL 3: FAMILY ROSTER
   // --------------------------------------------------------------------------
-  const renderLevel3 = () => (
-    <View style={styles.flex1}>
-      {/* Breadcrumb Navigation Bar */}
-      <View style={styles.breadcrumbBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
-          <Ionicons name="chevron-back" size={20} color={colors.amberPrimary} />
-          <Text style={styles.backBtnText}>{selectedAtak?.name || 'કુટુંબો'}</Text>
-        </TouchableOpacity>
-        <Text style={styles.breadcrumbDivider}>/</Text>
-        <Text style={styles.breadcrumbCurrent} numberOfLines={1}>
-          ઘર નં. {selectedFamily?.houseNumber || 'કુટુંબ'}
-        </Text>
-      </View>
+  const renderLevel3 = () => {
+    const headGu = selectedFamily?.headMemberId?.fullName?.gu || selectedFamily?.headNameGujarati || 'N/A';
+    const atakName = selectedFamily?.atak?.gu || selectedFamily?.atak || selectedAtak?.name || '';
+    const kuldeviName = selectedFamily?.kuldevi?.gu || selectedFamily?.kuldevi || selectedAtak?.kuldevi || '';
+    const addr = selectedFamily?.address?.streetAddress || selectedFamily?.address?.currentCity?.gu || (typeof selectedFamily?.address === 'string' ? selectedFamily?.address : '');
 
-      {/* Family Summary Banner Card */}
-      <View style={styles.rosterBannerCard}>
-        <View style={styles.rosterBannerHeader}>
-          <View style={styles.rosterBannerLeft}>
-            <View style={styles.rosterHouseBadge}>
-              <Ionicons name="home" size={14} color="#000" />
-              <Text style={styles.rosterHouseText}>ઘર નં. {selectedFamily?.houseNumber || 'N/A'}</Text>
+    return (
+      <View style={styles.flex1}>
+        {/* Breadcrumb Navigation Bar */}
+        <View style={styles.breadcrumbBar}>
+          <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
+            <Ionicons name="chevron-back" size={20} color={colors.amberPrimary} />
+            <Text style={styles.backBtnText}>{selectedAtak?.name || 'કુટુંબો'}</Text>
+          </TouchableOpacity>
+          <Text style={styles.breadcrumbDivider}>/</Text>
+          <Text style={styles.breadcrumbCurrent} numberOfLines={1}>
+            ઘર નં. {selectedFamily?.houseNumber || 'કુટુંબ'}
+          </Text>
+        </View>
+
+        {/* Family Summary Banner Card */}
+        <View style={styles.rosterBannerCard}>
+          <View style={styles.rosterBannerHeader}>
+            <View style={styles.rosterBannerLeft}>
+              <View style={styles.rosterHouseBadge}>
+                <Ionicons name="home" size={14} color="#000" />
+                <Text style={styles.rosterHouseText}>ઘર નં. {selectedFamily?.houseNumber || 'N/A'}</Text>
+              </View>
+              <Text style={styles.rosterAtakName}>{atakName}</Text>
             </View>
-            <Text style={styles.rosterAtakName}>{selectedFamily?.atak || selectedAtak?.name}</Text>
+
+            {canManage && (
+              <TouchableOpacity
+                style={styles.editFamilyBtn}
+                onPress={() => onOpenEditFamily && onOpenEditFamily(selectedFamily)}
+              >
+                <Ionicons name="create-outline" size={16} color={colors.textPrimary} />
+                <Text style={styles.editFamilyBtnText}>કુટુંબ સુધારો</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
+          <View style={styles.rosterBannerDetails}>
+            <Text style={styles.rosterHeadTitle}>મુખ્ય વડીલ:</Text>
+            <Text style={styles.rosterHeadValue}>{headGu}</Text>
+
+            {addr ? (
+              <View style={styles.rosterDetailRow}>
+                <Ionicons name="location-sharp" size={13} color={colors.textMuted} />
+                <Text style={styles.rosterDetailText}>{addr}</Text>
+              </View>
+            ) : null}
+
+            {kuldeviName ? (
+              <View style={styles.rosterDetailRow}>
+                <Ionicons name="flame" size={13} color={colors.amberPrimary} />
+                <Text style={styles.rosterDetailText}>કુળદેવી: {kuldeviName}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Action Button: Add Member */}
           {canManage && (
             <TouchableOpacity
-              style={styles.editFamilyBtn}
-              onPress={() => onOpenEditFamily && onOpenEditFamily(selectedFamily)}
+              style={styles.addMemberToFamilyBtn}
+              onPress={() => onOpenAddMember && onOpenAddMember(selectedFamily)}
             >
-              <Ionicons name="create-outline" size={16} color={colors.textPrimary} />
-              <Text style={styles.editFamilyBtnText}>કુટુંબ સુધારો</Text>
+              <Ionicons name="person-add" size={16} color="#000" />
+              <Text style={styles.addMemberToFamilyBtnText}>+ નવો સભ્ય ઉમેરો</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <View style={styles.rosterBannerDetails}>
-          <Text style={styles.rosterHeadTitle}>મુખ્ય વડીલ:</Text>
-          <Text style={styles.rosterHeadValue}>
-            {selectedFamily?.headNameGujarati || selectedFamily?.headNameEnglish || 'N/A'}
+        <View style={styles.rosterSectionHeader}>
+          <Text style={styles.rosterSectionTitle}>
+            કુટુંબના તમામ સભ્યો ({membersList.length})
           </Text>
-
-          {selectedFamily?.address ? (
-            <View style={styles.rosterDetailRow}>
-              <Ionicons name="location-sharp" size={13} color={colors.textMuted} />
-              <Text style={styles.rosterDetailText}>{selectedFamily.address}</Text>
-            </View>
-          ) : null}
-
-          {selectedFamily?.kuldevi ? (
-            <View style={styles.rosterDetailRow}>
-              <Ionicons name="flame" size={13} color={colors.amberPrimary} />
-              <Text style={styles.rosterDetailText}>કુળદેવી: {selectedFamily.kuldevi}</Text>
-            </View>
-          ) : null}
         </View>
 
-        {/* Action Button: Add Member */}
-        {canManage && (
-          <TouchableOpacity
-            style={styles.addMemberToFamilyBtn}
-            onPress={() => onOpenAddMember && onOpenAddMember(selectedFamily)}
-          >
-            <Ionicons name="person-add" size={16} color="#000" />
-            <Text style={styles.addMemberToFamilyBtnText}>+ નવો સભ્ય ઉમેરો</Text>
-          </TouchableOpacity>
-        )}
+        <FlatList
+          data={membersList}
+          keyExtractor={(item) => item._id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.amberPrimary} />}
+          contentContainerStyle={styles.listPadding}
+          ListEmptyComponent={
+            !loading && (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="person-outline" size={44} color={colors.textMuted} />
+                <Text style={styles.emptyText}>આ કુટુંબમાં હજુ કોઈ સભ્ય નોંધાયેલ નથી</Text>
+                {canManage && (
+                  <TouchableOpacity
+                    style={styles.emptyAddBtn}
+                    onPress={() => onOpenAddMember && onOpenAddMember(selectedFamily)}
+                  >
+                    <Text style={styles.emptyAddBtnText}>+ સભ્ય ઉમેરો</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )
+          }
+          renderItem={({ item }) => (
+            <MemberCard
+              member={item}
+              onViewDetail={(m) => onOpenMemberDetail && onOpenMemberDetail(m)}
+              onEdit={canManage ? (m) => onOpenEditMember && onOpenEditMember(m) : null}
+              onDelete={canManage ? handleDeleteMember : null}
+            />
+          )}
+        />
       </View>
-
-      <View style={styles.rosterSectionHeader}>
-        <Text style={styles.rosterSectionTitle}>
-          કુટુંબના તમામ સભ્યો ({membersList.length})
-        </Text>
-      </View>
-
-      <FlatList
-        data={membersList}
-        keyExtractor={(item) => item._id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.amberPrimary} />}
-        contentContainerStyle={styles.listPadding}
-        ListEmptyComponent={
-          !loading && (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="person-outline" size={44} color={colors.textMuted} />
-              <Text style={styles.emptyText}>આ કુટુંબમાં હજુ કોઈ સભ્ય નોંધાયેલ નથી</Text>
-              {canManage && (
-                <TouchableOpacity
-                  style={styles.emptyAddBtn}
-                  onPress={() => onOpenAddMember && onOpenAddMember(selectedFamily)}
-                >
-                  <Text style={styles.emptyAddBtnText}>+ સભ્ય ઉમેરો</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )
-        }
-        renderItem={({ item }) => (
-          <MemberCard
-            member={item}
-            onViewDetail={(m) => onOpenMemberDetail && onOpenMemberDetail(m)}
-            onEdit={canManage ? (m) => onOpenEditMember && onOpenEditMember(m) : null}
-            onDelete={canManage ? handleDeleteMember : null}
-          />
-        )}
-      />
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -679,6 +734,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary
+  },
+  atakNameEn: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: '500'
   },
   kuldeviRow: {
     flexDirection: 'row',
