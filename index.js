@@ -1,4 +1,11 @@
 import { registerRootComponent } from 'expo';
+import { LogBox } from 'react-native';
+
+// Suppress noisy dev server log-streaming warning when device is on mobile network
+LogBox.ignoreLogs([
+  'Cannot connect to Expo CLI',
+  'Cannot connect to Metro'
+]);
 
 import App from './App';
 

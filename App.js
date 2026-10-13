@@ -6,12 +6,18 @@ import {
   StyleSheet,
   StatusBar,
   ActivityIndicator,
-  Platform
+  Platform,
+  LogBox
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { COLORS } from './src/theme/colors';
 import { apiCache } from './src/api/cache';
+
+LogBox.ignoreLogs([
+  'Cannot connect to Expo CLI',
+  'Cannot connect to Metro'
+]);
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
