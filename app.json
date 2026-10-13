@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Nadoda Connect",
+    "name": "Nadoda Rajput Connect",
     "slug": "nadoda-connect",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,9 +14,7 @@
       "package": "com.dhiren.nadodaconnect",
       "adaptiveIcon": {
         "backgroundColor": "#0B1120",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/android-icon-foreground.png"
       }
     },
     "web": {

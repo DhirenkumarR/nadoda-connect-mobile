@@ -9,7 +9,8 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -57,7 +58,11 @@ export const LoginScreen = () => {
           <View style={styles.headerContainer}>
             <View style={styles.logoRing}>
               <View style={styles.logoInner}>
-                <Text style={styles.logoText}>ના</Text>
+                <Image
+                  source={require('../../assets/nododa_rajput.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
               </View>
             </View>
 
@@ -203,7 +208,12 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     backgroundColor: COLORS.bgDark,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    overflow: 'hidden'
+  },
+  logoImage: {
+    width: 60,
+    height: 60
   },
   logoText: {
     color: COLORS.amber,

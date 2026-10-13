@@ -76,6 +76,7 @@ export const AuthProvider = ({ children }) => {
     if (res.success && res.token && res.data) {
       await AsyncStorage.setItem('nadoda_token', res.token);
       await AsyncStorage.setItem('nadoda_user', JSON.stringify(res.data));
+      await AsyncStorage.removeItem('my_family_id');
       setToken(res.token);
       setUser(res.data);
 
@@ -97,6 +98,7 @@ export const AuthProvider = ({ children }) => {
     } catch {}
     await AsyncStorage.removeItem('nadoda_token');
     await AsyncStorage.removeItem('nadoda_user');
+    await AsyncStorage.removeItem('my_family_id');
     setToken(null);
     setUser(null);
   };

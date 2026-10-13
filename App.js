@@ -7,7 +7,8 @@ import {
   StatusBar,
   ActivityIndicator,
   Platform,
-  LogBox
+  LogBox,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -113,10 +114,14 @@ function MainApp() {
       <View style={styles.splashContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bgDark} />
         <View style={styles.splashIconCircle}>
-          <Ionicons name="people" size={40} color={COLORS.amber} />
+          <Image
+            source={require('./assets/nododa_rajput.png')}
+            style={{ width: 68, height: 68 }}
+            resizeMode="contain"
+          />
         </View>
-        <Text style={styles.splashTitle}>નાદોડા કનેક્ટ</Text>
-        <Text style={styles.splashSubtitle}>Nadoda Rajput Community</Text>
+        <Text style={styles.splashTitle}>નાદોડા રાજપૂત કનેક્ટ</Text>
+        <Text style={styles.splashSubtitle}>Nadoda Rajput Connect</Text>
         <ActivityIndicator size="small" color={COLORS.amber} style={{ marginTop: 24 }} />
       </View>
     );

@@ -43,7 +43,7 @@ export default function MyFamilyScreen({
       setLoading(true);
       let familyData = null;
 
-      // 1. First priority: call dedicated backend endpoint /families/my-family
+      // 1. Primary: dedicated backend endpoint /families/my-family
       try {
         const res = await familyApi.getMyFamily();
         if (res?.success && (res?.data?._id || res?.data?.data?._id)) {
@@ -52,10 +52,10 @@ export default function MyFamilyScreen({
           familyData = res;
         }
       } catch (e) {
-        // No family linked to account
+        // Account has no linked family
       }
 
-      // 2. Second priority: check if user object directly has a linked family ID
+      // 2. Secondary: check user object directly
       if (!familyData || !familyData._id) {
         const userFamId = user?.familyId?._id ? String(user.familyId._id) : (user?.familyId ? String(user.familyId) : null);
         if (userFamId) {
@@ -66,18 +66,7 @@ export default function MyFamilyScreen({
         }
       }
 
-      // 3. Third priority: check manually pinned family ID from AsyncStorage (if user previously selected their family)
-      if (!familyData || !familyData._id) {
-        const localFamId = await AsyncStorage.getItem('my_family_id');
-        if (localFamId) {
-          try {
-            const res = await familyApi.getById(localFamId);
-            familyData = res?.data?.data || res?.data || res;
-          } catch (e) {}
-        }
-      }
-
-      // 4. Populate family and members if found
+      // 3. Populate family and members if found, otherwise explicitly null
       if (familyData && familyData._id) {
         setFamily(familyData);
 
@@ -93,7 +82,6 @@ export default function MyFamilyScreen({
         setMembers([]);
       }
     } catch (err) {
-      console.warn('Error loading my family:', err.message);
       setFamily(null);
       setMembers([]);
     } finally {

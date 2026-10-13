@@ -7,7 +7,8 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
-  StatusBar
+  StatusBar,
+  Image
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
@@ -36,7 +37,11 @@ export const Header = ({
         {/* Left: Brand Identity */}
         <View style={styles.brandContainer}>
           <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>ના</Text>
+            <Image
+              source={require('../../assets/nododa_rajput.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <View>
             <Text style={styles.brandTitle}>નાડોદા રાજપૂત</Text>
@@ -216,14 +221,19 @@ const styles = StyleSheet.create({
     gap: 10
   },
   logoCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: COLORS.bgElevated,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: COLORS.amber,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    overflow: 'hidden'
+  },
+  logoImage: {
+    width: 32,
+    height: 32
   },
   logoText: {
     color: COLORS.amber,
