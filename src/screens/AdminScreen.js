@@ -375,7 +375,12 @@ export default function AdminScreen() {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.amberPrimary} />}
             contentContainerStyle={styles.listPadding}
             ListEmptyComponent={
-              !loading && (
+              loading ? (
+                <View style={styles.emptyContainer}>
+                  <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+                  <Text style={styles.emptyText}>વપરાશકર્તાઓ લોડ થઈ રહ્યા છે...</Text>
+                </View>
+              ) : (
                 <View style={styles.emptyContainer}>
                   <Ionicons name="people-outline" size={44} color={colors.textMuted} />
                   <Text style={styles.emptyText}>કોઈ વપરાશકર્તા મળ્યા નથી</Text>
@@ -488,7 +493,12 @@ export default function AdminScreen() {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.amberPrimary} />}
             contentContainerStyle={styles.listPadding}
             ListEmptyComponent={
-              !loading && (
+              loading ? (
+                <View style={styles.emptyContainer}>
+                  <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+                  <Text style={styles.emptyText}>સક્રિય સત્રો લોડ થઈ રહ્યા છે...</Text>
+                </View>
+              ) : (
                 <View style={styles.emptyContainer}>
                   <MaterialCommunityIcons name="devices" size={44} color={colors.textMuted} />
                   <Text style={styles.emptyText}>કોઈ સક્રિય સત્રો મળ્યા નથી</Text>

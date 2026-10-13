@@ -173,6 +173,15 @@ export default function StatsScreen() {
   const talukaName = currentVillage?.taluka?.gu || currentVillage?.talukaGujarati || (typeof currentVillage?.taluka === 'string' ? currentVillage?.taluka : 'સમી');
   const districtName = currentVillage?.district?.gu || currentVillage?.districtGujarati || (typeof currentVillage?.district === 'string' ? currentVillage?.district : 'પાટણ');
 
+  if (loading && !stats) {
+    return (
+      <View style={styles.centerLoadingContainer}>
+        <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+        <Text style={styles.loadingText}>આંકડાકીય માહિતી લોડ થઈ રહી છે...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       style={styles.container}
@@ -524,5 +533,17 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 3
+  },
+  centerLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: colors.bgBase
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600'
   }
 });

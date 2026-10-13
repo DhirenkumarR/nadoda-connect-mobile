@@ -156,6 +156,13 @@ export const MemberDetailModal = ({
             </TouchableOpacity>
           </View>
 
+          {loading && (
+            <View style={styles.modalLoadingBanner}>
+              <ActivityIndicator size="small" color={COLORS.amber} style={{ marginRight: 6 }} />
+              <Text style={styles.modalLoadingText}>તાજી વિગતો મેળવી રહ્યું છે...</Text>
+            </View>
+          )}
+
           <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
             {/* Quick Badges */}
             <View style={styles.badgesWrap}>
@@ -463,6 +470,20 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight
+  },
+  modalLoadingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(245, 158, 11, 0.2)'
+  },
+  modalLoadingText: {
+    fontSize: 11,
+    color: COLORS.amber,
+    fontWeight: '600'
   },
   avatar: {
     width: 48,

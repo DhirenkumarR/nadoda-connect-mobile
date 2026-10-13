@@ -289,10 +289,16 @@ export default function MembersScreen({
         )}
       </View>
 
-      {/* Member FlatList */}
-      <FlatList
-        data={filteredMembers}
-        keyExtractor={(item) => item._id}
+      {/* Member FlatList / Center Loader */}
+      {loading && allMembers.length === 0 ? (
+        <View style={styles.centerLoadingContainer}>
+          <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+          <Text style={styles.loadingText}>સભ્યોની યાદી લોડ થઈ રહી છે...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredMembers}
+          keyExtractor={(item) => item._id}
         renderItem={renderItem}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.amberPrimary} />}
         contentContainerStyle={styles.listPadding}
@@ -301,7 +307,12 @@ export default function MembersScreen({
         windowSize={7}
         removeClippedSubviews={true}
         ListEmptyComponent={
-          !loading && (
+          loading ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyTitle}>સભ્યોની યાદી લોડ થઈ રહી છે...</Text>
+            </View>
+          ) : (
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={48} color={colors.textMuted} />
               <Text style={styles.emptyTitle}>કોઈ સભ્ય મળ્યા નથી</Text>
@@ -450,5 +461,16 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: 6
+  },
+  centerLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600'
   }
 });

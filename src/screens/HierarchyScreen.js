@@ -678,9 +678,32 @@ export default function HierarchyScreen({
         </View>
       )}
 
-      {level === 1 && renderLevel1()}
-      {level === 2 && renderLevel2()}
-      {level === 3 && renderLevel3()}
+      {level === 1 && (
+        loading && ataksList.length === 0 ? (
+          <View style={styles.centerLoadingContainer}>
+            <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+            <Text style={styles.loadingText}>સર્વર પરથી અટક લોડ થઈ રહી છે...</Text>
+          </View>
+        ) : renderLevel1()
+      )}
+
+      {level === 2 && (
+        loading && familiesList.length === 0 ? (
+          <View style={styles.centerLoadingContainer}>
+            <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+            <Text style={styles.loadingText}>કુટુંબો લોડ થઈ રહ્યા છે...</Text>
+          </View>
+        ) : renderLevel2()
+      )}
+
+      {level === 3 && (
+        loading && membersList.length === 0 ? (
+          <View style={styles.centerLoadingContainer}>
+            <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+            <Text style={styles.loadingText}>સભ્યો લોડ થઈ રહ્યા છે...</Text>
+          </View>
+        ) : renderLevel3()
+      )}
     </View>
   );
 }
@@ -1104,5 +1127,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#000'
+  },
+  centerLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600'
   }
 });
