@@ -268,7 +268,9 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'android' ? 28 : 16,
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,

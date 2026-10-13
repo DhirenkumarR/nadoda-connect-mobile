@@ -639,8 +639,9 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'android' ? 28 : 14,
     borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,
     backgroundColor: COLORS.bgDark

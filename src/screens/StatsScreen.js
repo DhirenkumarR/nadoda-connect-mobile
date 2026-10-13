@@ -24,22 +24,20 @@ export default function StatsScreen() {
   const [members, setMembers] = useState([]);
 
   useEffect(() => {
-    if (currentVillage?._id) {
-      loadStats();
-    }
+    loadStats();
   }, [currentVillage?._id]);
 
   const loadStats = async () => {
-    if (!currentVillage?._id) return;
+    const vId = currentVillage?._id || '6acb0d5c63ce8027eecd8487';
     try {
       setLoading(true);
       // Fetch stats from village stats endpoint
-      const res = await villageApi.getStats(currentVillage._id);
+      const res = await villageApi.getStats(vId);
       const data = (res && res.data) ? res.data : res || {};
       setStats(data);
 
       // Fetch all members for in-depth demographics calculation
-      const mRes = await memberApi.getAll({ villageId: currentVillage._id, limit: 2000 });
+      const mRes = await memberApi.getAll({ villageId: vId, limit: 2000 });
       const mems = Array.isArray(mRes?.data) ? mRes.data : (Array.isArray(mRes) ? mRes : []);
       setMembers(mems);
     } catch (err) {

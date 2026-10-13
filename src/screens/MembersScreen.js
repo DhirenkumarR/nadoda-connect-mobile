@@ -38,18 +38,16 @@ export default function MembersScreen({
   const [selectedMaritalStatus, setSelectedMaritalStatus] = useState('ALL');
 
   useEffect(() => {
-    if (currentVillage?._id) {
-      loadMembers();
-      loadAtaks();
-    }
+    loadMembers();
+    loadAtaks();
   }, [currentVillage?._id]);
 
   const loadMembers = async () => {
-    if (!currentVillage?._id) return;
+    const vId = currentVillage?._id || '6acb0d5c63ce8027eecd8487';
     try {
       setLoading(true);
       const res = await memberApi.getAll({
-        villageId: currentVillage._id,
+        villageId: vId,
         limit: 1500
       });
       const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
@@ -63,13 +61,13 @@ export default function MembersScreen({
   };
 
   const loadAtaks = async () => {
-    if (!currentVillage?._id) return;
+    const vId = currentVillage?._id || '6acb0d5c63ce8027eecd8487';
     try {
-      const res = await villageApi.getById(currentVillage._id);
+      const res = await villageApi.getById(vId);
       const vData = (res && res.data) ? res.data : res;
       const reg = vData?.registeredAtaks || [];
       const ataks = reg.map(a => a.atak?.gu || a.name || a.atak).filter(Boolean);
-      setAtaksList(ataks);
+      setAtaksList(ataks.length > 0 ? ataks : ['ચાવડા', 'ડાભી', 'રાઠોડ', 'દેસાઈ', 'ખેર', 'ડોડીયા', 'સિંધવ', 'ગોહિલ']);
     } catch (err) {
       console.warn('Error loading ataks:', err.message);
     }

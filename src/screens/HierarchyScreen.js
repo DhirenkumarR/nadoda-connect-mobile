@@ -16,6 +16,17 @@ import { useAuth } from '../context/AuthContext';
 import { villageApi, familyApi, memberApi } from '../api';
 import MemberCard from '../components/MemberCard';
 
+const DEFAULT_ATAKS = [
+  { _id: '1', name: 'ચાવડા', nameEn: 'Chavda', kuldevi: 'શ્રી આશાપુરા માતાજી', familyCount: 100, memberCount: 506 },
+  { _id: '2', name: 'ડાભી', nameEn: 'Dabhi', kuldevi: 'શ્રી મોમાય માતાજી', familyCount: 18, memberCount: 104 },
+  { _id: '3', name: 'રાઠોડ', nameEn: 'Rathod', kuldevi: 'શ્રી ચામુંડા માતાજી', familyCount: 9, memberCount: 49 },
+  { _id: '4', name: 'દેસાઈ', nameEn: 'Desai', kuldevi: 'શ્રી ખોડિયાર માતાજી', familyCount: 8, memberCount: 29 },
+  { _id: '5', name: 'ખેર', nameEn: 'Kher', kuldevi: 'શ્રી વહાણવટી માતાજી', familyCount: 4, memberCount: 28 },
+  { _id: '6', name: 'ડોડીયા', nameEn: 'Dodiya', kuldevi: 'શ્રી બહુચર માતાજી', familyCount: 2, memberCount: 8 },
+  { _id: '7', name: 'સિંધવ', nameEn: 'Sindhav', kuldevi: 'શ્રી અંબાજી માતાજી', familyCount: 1, memberCount: 3 },
+  { _id: '8', name: 'ગોહિલ', nameEn: 'Gohil', kuldevi: 'શ્રી ખોડિયાર માતાજી', familyCount: 1, memberCount: 2 }
+];
+
 export default function HierarchyScreen({
   targetFamilyId,
   clearTargetFamily,
@@ -35,7 +46,7 @@ export default function HierarchyScreen({
   // Data states
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [ataksList, setAtaksList] = useState([]);
+  const [ataksList, setAtaksList] = useState(DEFAULT_ATAKS);
   const [familiesList, setFamiliesList] = useState([]);
   const [membersList, setMembersList] = useState([]);
 
@@ -50,19 +61,17 @@ export default function HierarchyScreen({
     }
   }, [targetFamilyId]);
 
-  // Load level 1 ataks when village changes
+  // Load level 1 ataks when village changes or on mount
   useEffect(() => {
-    if (currentVillage?._id) {
-      loadAtaks();
-    }
+    loadAtaks();
   }, [currentVillage?._id]);
 
   const loadAtaks = async () => {
-    if (!currentVillage?._id) return;
+    const vId = currentVillage?._id || '6acb0d5c63ce8027eecd8487';
     try {
       setLoading(true);
       // 1. Fetch full village details
-      const res = await villageApi.getById(currentVillage._id);
+      const res = await villageApi.getById(vId);
       const vData = (res && res.data) ? res.data : res;
 
       let rawAtaks = vData?.registeredAtaks || [];
@@ -151,11 +160,12 @@ export default function HierarchyScreen({
   };
 
   const loadFamiliesForAtak = async (atakName) => {
-    if (!currentVillage?._id || !atakName) return;
+    if (!atakName) return;
+    const vId = currentVillage?._id || '6acb0d5c63ce8027eecd8487';
     try {
       setLoading(true);
       const res = await familyApi.getAll({
-        villageId: currentVillage._id,
+        villageId: vId,
         atak: atakName,
         limit: 500
       });

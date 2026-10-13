@@ -99,14 +99,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgDark,
     borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,
-    paddingBottom: Platform.OS === 'ios' ? 18 : 6
+    paddingBottom: Platform.OS === 'ios' ? 24 : 28
   },
   tabBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingVertical: 6,
-    height: 52
+    paddingTop: 6,
+    paddingBottom: 4,
+    height: 56
   },
   tabItem: {
     alignItems: 'center',
