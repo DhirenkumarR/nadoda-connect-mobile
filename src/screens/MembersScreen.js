@@ -15,6 +15,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { memberApi, villageApi } from '../api';
+import { apiCache } from '../api/cache';
 import MemberCard from '../components/MemberCard';
 
 export default function MembersScreen({
@@ -74,10 +75,11 @@ export default function MembersScreen({
     }
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    loadMembers();
-    loadAtaks();
+    await apiCache.clear();
+    await loadMembers();
+    await loadAtaks();
   };
 
   const handleDeleteMember = (member) => {

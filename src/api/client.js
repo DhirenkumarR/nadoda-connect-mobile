@@ -104,6 +104,15 @@ class ApiClient {
     return data;
   }
 
+  async invalidateDirectoryCaches() {
+    await Promise.all([
+      apiCache.invalidate('/members'),
+      apiCache.invalidate('/families'),
+      apiCache.invalidate('/villages'),
+      apiCache.invalidate('/stats')
+    ]);
+  }
+
   async post(endpoint, body = {}, headers = {}) {
     const data = await this.request(endpoint, {
       method: 'POST',
@@ -112,9 +121,13 @@ class ApiClient {
     });
 
     // Invalidate related caches
-    if (endpoint.includes('/members')) await apiCache.invalidate('/members');
-    if (endpoint.includes('/families')) await apiCache.invalidate('/families');
-    if (endpoint.includes('/villages')) await apiCache.invalidate('/villages');
+    if (
+      endpoint.includes('/members') ||
+      endpoint.includes('/families') ||
+      endpoint.includes('/villages')
+    ) {
+      await this.invalidateDirectoryCaches();
+    }
     if (endpoint.includes('/auth/users') || endpoint.includes('session')) {
       await apiCache.invalidate('/auth');
     }
@@ -130,9 +143,13 @@ class ApiClient {
     });
 
     // Invalidate related caches
-    if (endpoint.includes('/members')) await apiCache.invalidate('/members');
-    if (endpoint.includes('/families')) await apiCache.invalidate('/families');
-    if (endpoint.includes('/villages')) await apiCache.invalidate('/villages');
+    if (
+      endpoint.includes('/members') ||
+      endpoint.includes('/families') ||
+      endpoint.includes('/villages')
+    ) {
+      await this.invalidateDirectoryCaches();
+    }
     if (endpoint.includes('/auth')) await apiCache.invalidate('/auth');
 
     return data;
@@ -142,9 +159,13 @@ class ApiClient {
     const data = await this.request(endpoint, { method: 'DELETE', headers });
 
     // Invalidate related caches
-    if (endpoint.includes('/members')) await apiCache.invalidate('/members');
-    if (endpoint.includes('/families')) await apiCache.invalidate('/families');
-    if (endpoint.includes('/villages')) await apiCache.invalidate('/villages');
+    if (
+      endpoint.includes('/members') ||
+      endpoint.includes('/families') ||
+      endpoint.includes('/villages')
+    ) {
+      await this.invalidateDirectoryCaches();
+    }
     if (endpoint.includes('/auth')) await apiCache.invalidate('/auth');
 
     return data;

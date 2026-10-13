@@ -14,6 +14,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { villageApi, familyApi, memberApi } from '../api';
+import { apiCache } from '../api/cache';
 import MemberCard from '../components/MemberCard';
 
 export default function HierarchyScreen({
@@ -243,14 +244,15 @@ export default function HierarchyScreen({
     }
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
+    await apiCache.clear();
     if (level === 1) {
-      loadAtaks();
+      await loadAtaks();
     } else if (level === 2 && selectedAtak) {
-      loadFamiliesForAtak(selectedAtak.name);
+      await loadFamiliesForAtak(selectedAtak.name);
     } else if (level === 3 && selectedFamily) {
-      loadFamilyRoster(selectedFamily._id);
+      await loadFamilyRoster(selectedFamily._id);
     } else {
       setRefreshing(false);
     }

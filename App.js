@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { COLORS } from './src/theme/colors';
+import { apiCache } from './src/api/cache';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -204,8 +205,9 @@ function MainApp() {
         family={memberFormFamily}
         village={currentVillage}
         onClose={() => setMemberFormVisible(false)}
-        onSuccess={() => {
+        onSuccess={async () => {
           setMemberFormVisible(false);
+          await apiCache.clear();
           setRefreshTrigger((prev) => prev + 1);
         }}
       />
@@ -217,8 +219,9 @@ function MainApp() {
         initialAtak={familyInitialAtak}
         village={currentVillage}
         onClose={() => setFamilyFormVisible(false)}
-        onSuccess={() => {
+        onSuccess={async () => {
           setFamilyFormVisible(false);
+          await apiCache.clear();
           setRefreshTrigger((prev) => prev + 1);
         }}
       />

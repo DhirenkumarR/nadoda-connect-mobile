@@ -13,6 +13,7 @@ import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-ico
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { villageApi, memberApi } from '../api';
+import { apiCache } from '../api/cache';
 
 export default function StatsScreen() {
   const { currentVillage, canManageVillage, isSuperAdmin } = useAuth();
@@ -53,6 +54,7 @@ export default function StatsScreen() {
     try {
       setRecalculating(true);
       await villageApi.recalculate(currentVillage._id);
+      await apiCache.clear();
       Alert.alert('સફળ', 'આંકડા સફળતાપૂર્વક અપડેટ થયા');
       await loadStats();
     } catch (err) {
@@ -62,9 +64,10 @@ export default function StatsScreen() {
     }
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    loadStats();
+    await apiCache.clear();
+    await loadStats();
   };
 
   // Demographics metrics calculated from members
