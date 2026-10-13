@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Linking,
-  Alert
+  Alert,
+  Platform
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';

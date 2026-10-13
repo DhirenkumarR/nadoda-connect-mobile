@@ -8,7 +8,8 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  Switch
+  Switch,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
