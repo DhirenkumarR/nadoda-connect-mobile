@@ -323,6 +323,7 @@ export default function MembersScreen({
           )
         }
       />
+      )}
     </View>
   );
 }
