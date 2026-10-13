@@ -67,15 +67,17 @@ export default function MembersScreen({
       const vData = (res && res.data) ? res.data : res;
       const reg = vData?.registeredAtaks || [];
       const ataks = reg.map(a => a.atak?.gu || a.name || a.atak).filter(Boolean);
-      setAtaksList(ataks.length > 0 ? ataks : ['ચાવડા', 'ડાભી', 'રાઠોડ', 'દેસાઈ', 'ખેર', 'ડોડીયા', 'સિંધવ', 'ગોહિલ']);
+      setAtaksList(ataks);
     } catch (err) {
       console.warn('Error loading ataks:', err.message);
+      setAtaksList([]);
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
     loadMembers();
+    loadAtaks();
   };
 
   const handleDeleteMember = (member) => {

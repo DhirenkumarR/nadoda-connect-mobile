@@ -99,13 +99,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgDark,
     borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 28
+    paddingBottom: Platform.OS === 'ios' ? 24 : 36
   },
   tabBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingTop: 6,
+    paddingTop: 8,
     paddingBottom: 4,
     height: 56
   },

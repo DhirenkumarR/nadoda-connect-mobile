@@ -16,10 +16,15 @@ class ApiClient {
   async init() {
     try {
       const stored = await AsyncStorage.getItem('custom_api_url');
-      if (stored) {
+      if (stored && stored.startsWith('https://') && !stored.includes('ngrok') && !stored.includes('localhost') && !stored.includes('192.168.')) {
         this.baseUrl = stored;
+      } else {
+        this.baseUrl = DEFAULT_API_URL;
+        await AsyncStorage.removeItem('custom_api_url');
       }
-    } catch {}
+    } catch {
+      this.baseUrl = DEFAULT_API_URL;
+    }
   }
 
   async getHeaders() {

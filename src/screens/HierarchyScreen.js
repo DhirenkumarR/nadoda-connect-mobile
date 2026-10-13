@@ -16,17 +16,6 @@ import { useAuth } from '../context/AuthContext';
 import { villageApi, familyApi, memberApi } from '../api';
 import MemberCard from '../components/MemberCard';
 
-const DEFAULT_ATAKS = [
-  { _id: '1', name: 'ચાવડા', nameEn: 'Chavda', kuldevi: 'શ્રી આશાપુરા માતાજી', familyCount: 100, memberCount: 506 },
-  { _id: '2', name: 'ડાભી', nameEn: 'Dabhi', kuldevi: 'શ્રી મોમાય માતાજી', familyCount: 18, memberCount: 104 },
-  { _id: '3', name: 'રાઠોડ', nameEn: 'Rathod', kuldevi: 'શ્રી ચામુંડા માતાજી', familyCount: 9, memberCount: 49 },
-  { _id: '4', name: 'દેસાઈ', nameEn: 'Desai', kuldevi: 'શ્રી ખોડિયાર માતાજી', familyCount: 8, memberCount: 29 },
-  { _id: '5', name: 'ખેર', nameEn: 'Kher', kuldevi: 'શ્રી વહાણવટી માતાજી', familyCount: 4, memberCount: 28 },
-  { _id: '6', name: 'ડોડીયા', nameEn: 'Dodiya', kuldevi: 'શ્રી બહુચર માતાજી', familyCount: 2, memberCount: 8 },
-  { _id: '7', name: 'સિંધવ', nameEn: 'Sindhav', kuldevi: 'શ્રી અંબાજી માતાજી', familyCount: 1, memberCount: 3 },
-  { _id: '8', name: 'ગોહિલ', nameEn: 'Gohil', kuldevi: 'શ્રી ખોડિયાર માતાજી', familyCount: 1, memberCount: 2 }
-];
-
 export default function HierarchyScreen({
   targetFamilyId,
   clearTargetFamily,
@@ -43,12 +32,13 @@ export default function HierarchyScreen({
   const [selectedAtak, setSelectedAtak] = useState(null);
   const [selectedFamily, setSelectedFamily] = useState(null);
 
-  // Data states
+  // Data states (Pure live data from API)
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [ataksList, setAtaksList] = useState(DEFAULT_ATAKS);
+  const [ataksList, setAtaksList] = useState([]);
   const [familiesList, setFamiliesList] = useState([]);
   const [membersList, setMembersList] = useState([]);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   // Search states
   const [atakSearch, setAtakSearch] = useState('');
@@ -70,26 +60,36 @@ export default function HierarchyScreen({
     const vId = currentVillage?._id || '6acb0d5c63ce8027eecd8487';
     try {
       setLoading(true);
-      // 1. Fetch full village details
-      const res = await villageApi.getById(vId);
-      const vData = (res && res.data) ? res.data : res;
+      setErrorMessage(null);
 
-      let rawAtaks = vData?.registeredAtaks || [];
+      // 1. Fetch full village details from live API
+      let rawAtaks = [];
+      try {
+        const res = await villageApi.getById(vId);
+        const vData = (res && res.data) ? res.data : res;
+        if (vData?.registeredAtaks && Array.isArray(vData.registeredAtaks) && vData.registeredAtaks.length > 0) {
+          rawAtaks = vData.registeredAtaks;
+        }
+      } catch (err1) {
+        console.warn('villageApi.getById fallback to getStats:', err1.message);
+      }
 
       // 2. Also try getStats to ensure accurate counts if available
       try {
-        const statsRes = await villageApi.getStats(currentVillage._id);
+        const statsRes = await villageApi.getStats(vId);
         const statsData = statsRes?.data || statsRes;
-        if (statsData?.ataks && statsData.ataks.length > 0) {
+        if (statsData?.ataks && Array.isArray(statsData.ataks) && statsData.ataks.length > 0) {
           rawAtaks = statsData.ataks;
         }
-      } catch {}
+      } catch (err2) {
+        console.warn('villageApi.getStats failed:', err2.message);
+      }
 
-      // 3. Fallback: fetch families to count if registeredAtaks is empty
+      // 3. Fallback: fetch families directly from API to aggregate if registeredAtaks is empty
       const atakCounts = {};
       if (rawAtaks.length === 0) {
         try {
-          const famRes = await familyApi.getAll({ villageId: currentVillage._id, limit: 1000 });
+          const famRes = await familyApi.getAll({ villageId: vId, limit: 1000 });
           const allFamilies = Array.isArray(famRes?.data) ? famRes.data : (Array.isArray(famRes) ? famRes : []);
           allFamilies.forEach(f => {
             const aName = f.atak?.gu || f.atak?.en || (typeof f.atak === 'string' ? f.atak : '');
@@ -97,14 +97,16 @@ export default function HierarchyScreen({
               atakCounts[aName] = (atakCounts[aName] || 0) + 1;
             }
           });
-        } catch {}
+        } catch (err3) {
+          console.warn('familyApi.getAll fallback failed:', err3.message);
+        }
       }
 
-      // Map to standard UI objects
+      // Map API data to standard UI objects
       const ataks = rawAtaks.map((a, idx) => {
-        const guName = a.atak?.gu || a.name || a.atak || '';
+        const guName = a.atak?.gu || a.name || (typeof a.atak === 'string' ? a.atak : '') || '';
         const enName = a.atak?.en || a.nameEn || '';
-        const kuldeviGu = a.kuldevi?.gu || a.kuldevi || '';
+        const kuldeviGu = a.kuldevi?.gu || (typeof a.kuldevi === 'string' ? a.kuldevi : '') || '';
         return {
           _id: a._id || guName || String(idx),
           name: guName,
@@ -115,7 +117,7 @@ export default function HierarchyScreen({
         };
       });
 
-      // Synthesize if empty
+      // Synthesize if rawAtaks was empty but families were returned
       if (ataks.length === 0 && Object.keys(atakCounts).length > 0) {
         Object.entries(atakCounts).forEach(([aName, count]) => {
           ataks.push({
@@ -129,9 +131,14 @@ export default function HierarchyScreen({
         });
       }
 
+      if (ataks.length === 0 && rawAtaks.length === 0 && Object.keys(atakCounts).length === 0) {
+        setErrorMessage('સર્વર પરથી કોઈ અટક મળી નથી');
+      }
+
       setAtaksList(ataks);
     } catch (err) {
-      console.warn('Error loading ataks:', err.message);
+      console.warn('Error loading ataks from live API:', err.message);
+      setErrorMessage('સર્વર સાથે જોડાણ થઈ શક્યું નથી: ' + (err.message || 'Error'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -339,7 +346,23 @@ export default function HierarchyScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.amberPrimary} />}
         contentContainerStyle={styles.listPadding}
         ListEmptyComponent={
-          !loading && (
+          loading ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyText}>સર્વર પરથી માહિતી લોડ થઈ રહી છે...</Text>
+            </View>
+          ) : errorMessage ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="alert-circle-outline" size={48} color={colors.rosePrimary || '#f43f5e'} />
+              <Text style={[styles.emptyText, { color: '#f43f5e', textAlign: 'center', marginHorizontal: 20 }]}>
+                {errorMessage}
+              </Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={loadAtaks}>
+                <Ionicons name="refresh" size={16} color="#000" />
+                <Text style={styles.retryBtnText}>ફરી પ્રયાસ કરો</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
             <View style={styles.emptyContainer}>
               <Ionicons name="git-network-outline" size={48} color={colors.textMuted} />
               <Text style={styles.emptyText}>કોઈ અટક મળી નથી</Text>
@@ -449,7 +472,12 @@ export default function HierarchyScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.amberPrimary} />}
         contentContainerStyle={styles.listPadding}
         ListEmptyComponent={
-          !loading && (
+          loading ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyText}>કુટુંબો લોડ થઈ રહ્યા છે...</Text>
+            </View>
+          ) : (
             <View style={styles.emptyContainer}>
               <FontAwesome5 name="users" size={40} color={colors.textMuted} />
               <Text style={styles.emptyText}>આ અટકમાં કોઈ કુટુંબ મળ્યું નથી</Text>
@@ -609,7 +637,12 @@ export default function HierarchyScreen({
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.amberPrimary} />}
           contentContainerStyle={styles.listPadding}
           ListEmptyComponent={
-            !loading && (
+            loading ? (
+              <View style={styles.emptyContainer}>
+                <ActivityIndicator size="large" color={colors.amberPrimary} style={{ marginBottom: 12 }} />
+                <Text style={styles.emptyText}>સભ્યો લોડ થઈ રહ્યા છે...</Text>
+              </View>
+            ) : (
               <View style={styles.emptyContainer}>
                 <Ionicons name="person-outline" size={44} color={colors.textMuted} />
                 <Text style={styles.emptyText}>આ કુટુંબમાં હજુ કોઈ સભ્ય નોંધાયેલ નથી</Text>
@@ -1054,6 +1087,21 @@ const styles = StyleSheet.create({
   },
   emptyAddBtnText: {
     fontSize: 13,
+    fontWeight: '700',
+    color: '#000'
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.amberPrimary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 14,
+    gap: 6
+  },
+  retryBtnText: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#000'
   }
