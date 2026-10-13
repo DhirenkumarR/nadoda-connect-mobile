@@ -101,18 +101,21 @@ export default function StatsScreen() {
       else if (a <= 60) age36_60++;
       else age60Plus++;
 
-      const mMarital = m.maritalStatus?.key || (typeof m.maritalStatus === 'string' ? m.maritalStatus : '');
+      const rawMarital = m.maritalStatus?.key || m.maritalStatus?.gu || (typeof m.maritalStatus === 'string' ? m.maritalStatus : '');
+      const mMarital = typeof rawMarital === 'object' ? (rawMarital?.gu || rawMarital?.key || '') : String(rawMarital || '');
       if (mMarital) {
         maritalCount[mMarital] = (maritalCount[mMarital] || 0) + 1;
       }
 
-      const mOcc = m.occupation?.title || (typeof m.occupation === 'string' ? m.occupation : '');
+      const rawOcc = m.occupation?.title || (typeof m.occupation === 'string' ? m.occupation : '');
+      const mOcc = typeof rawOcc === 'object' ? (rawOcc?.gu || rawOcc?.en || '') : String(rawOcc || '');
       if (mOcc && mOcc.trim()) {
         const occ = mOcc.trim();
         occCount[occ] = (occCount[occ] || 0) + 1;
       }
 
-      const mCity = m.occupation?.workCity || m.location?.currentCity?.gu || m.address?.currentCity?.gu || (typeof m.workCity === 'string' ? m.workCity : '');
+      const rawCity = m.occupation?.workCity || m.location?.currentCity?.gu || m.address?.currentCity?.gu || (typeof m.workCity === 'string' ? m.workCity : '');
+      const mCity = typeof rawCity === 'object' ? (rawCity?.gu || rawCity?.en || '') : String(rawCity || '');
       if (mCity && mCity.trim()) {
         const c = mCity.trim();
         cityCount[c] = (cityCount[c] || 0) + 1;
@@ -139,6 +142,8 @@ export default function StatsScreen() {
     const maritalLabels = {
       married: 'પરિણીત',
       unmarried: 'અપરિણીત',
+      widow: 'વિધવા',
+      widower: 'વિધુર',
       widowed: 'વિધુર / વિધવા',
       divorced: 'છૂટાછેડા'
     };
@@ -157,12 +162,16 @@ export default function StatsScreen() {
   const canManage = isSuperAdmin || canManageVillage(currentVillage?._id);
 
   // Stats values
-  const totalFamilies = stats?.totalFamilies || currentVillage?.stats?.totalFamilies || 0;
-  const totalMembers = stats?.totalMembers || currentVillage?.stats?.totalMembers || members.length;
-  const maleCount = stats?.maleCount || currentVillage?.stats?.maleCount || 0;
-  const femaleCount = stats?.femaleCount || currentVillage?.stats?.femaleCount || 0;
+  const totalFamilies = stats?.totalHouses || stats?.totalFamilies || currentVillage?.totalHouses || currentVillage?.stats?.totalFamilies || 0;
+  const totalMembers = stats?.totalMembers || currentVillage?.totalMembers || currentVillage?.stats?.totalMembers || members.length;
+  const maleCount = stats?.totalMale || stats?.maleCount || currentVillage?.totalMale || currentVillage?.stats?.maleCount || 0;
+  const femaleCount = stats?.totalFemale || stats?.femaleCount || currentVillage?.totalFemale || currentVillage?.stats?.femaleCount || 0;
   const sexRatio = maleCount > 0 ? Math.round((femaleCount / maleCount) * 1000) : 'N/A';
   const avgFamilySize = totalFamilies > 0 ? (totalMembers / totalFamilies).toFixed(1) : 'N/A';
+
+  const villageName = currentVillage?.name?.gu || currentVillage?.nameGujarati || (typeof currentVillage?.name === 'string' ? currentVillage?.name : 'ગામ');
+  const talukaName = currentVillage?.taluka?.gu || currentVillage?.talukaGujarati || (typeof currentVillage?.taluka === 'string' ? currentVillage?.taluka : 'સમી');
+  const districtName = currentVillage?.district?.gu || currentVillage?.districtGujarati || (typeof currentVillage?.district === 'string' ? currentVillage?.district : 'પાટણ');
 
   return (
     <ScrollView
@@ -174,10 +183,10 @@ export default function StatsScreen() {
       <View style={styles.villageHeaderCard}>
         <View style={styles.villageHeaderLeft}>
           <Text style={styles.villageName}>
-            {currentVillage?.nameGujarati || currentVillage?.name || 'ગામ'}
+            {villageName}
           </Text>
           <Text style={styles.villageSub}>
-            તાલુકો: {currentVillage?.taluka || 'સમી'} • જિલ્લો: {currentVillage?.district || 'પાટણ'}
+            તાલુકો: {talukaName} • જિલ્લો: {districtName}
           </Text>
         </View>
 
